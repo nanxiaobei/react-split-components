@@ -1,6 +1,6 @@
 # React Split Components
 
-A new way of Function Components without Hooks
+一种全新的 React 函数组件写法，再不需要 Hooks
 
 ---
 
