@@ -173,9 +173,9 @@ Similar to `render`, `props` is also passed to an external variable in "re-assig
 
 Think about it carefully: through the closure model, `useMemo` and `useRef` are naturally unnecessary.
 
-`useMemo` is because a complex data needs to be wrapped every time, and using closure, this is not necessary. The mechanism of `useMemo` (similar to `computed`) can be changed to trigger manually when recalculation is required. That is, the declarative coding of `useMemo` has been turned into an imperative coding of "manual call", which is more intuitive (just like Class Components).
+`useMemo` is because the complex data is re-created every time and needs to be wrapped, but using closure, this is not necessary. And `useMemo` similar to the calculation mechanism of `computed`, just change it to manual trigger. To change the declarative programing of `useMemo` to the imperative programing of "manual call", which is more intuitive (just like the era of Class Components).
 
-`useRef` is because a variable is initialized every time, it has to be wrapped, and using closure, yes, the variable will never be re-created, and component naturally holds the updated value of the variable, Just operating mechanism of JS. That's it, it is so natural.
+`useRef` is because the variable is re-created every time, it has to be wrapped, and using closure, yes, there is no re-create, and the component naturally holds the updated value of the variable. All of this is the operating mechanism of JS. Everything is natural.
 
 Therefore, **we successfully lifted the dependence on `useMemo` and `useRef`**.
 
@@ -266,7 +266,7 @@ const Demo = demo();
 
 We can add additional functions too, but it is more concise to use the ready-made `render`.
 
-`render()` can be called directly or passed in parameters, `render(callback, isLayoutEffect)`, judged by the second parameter, callback will be called in `useEffect` or `useLayoutEffect`. Note: In theory, `render` can be called multiple times(although this is incorrect), but React only triggers one update, so if callback is passed in each time, only the last callback will be take.
+`render()` can be called directly or passed in parameters, `render(callback, isLayoutEffect)`, judged by the second parameter, callback will be called in `useEffect` or `useLayoutEffect`. Note: In theory, `render` can be called multiple times (although this is incorrect), but React only triggers one update, so if callback is passed in each time, only the last callback will be take.
 
 As a result, **we successfully lifted the dependency on `useEffect` and `useLayoutEffect`**.
 
