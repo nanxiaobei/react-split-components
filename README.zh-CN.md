@@ -15,16 +15,17 @@
 ## 简单示例
 
 ```jsx
-function demo(props, render) {
+function demo() {
+  let render;
   let count = 0;
 
   const onClick = () => {
-    count = count + 1;
+    count += 1;
     render();
   };
 
-  return (next) => {
-    [props, render] = useProps(next);
+  return () => {
+    render = useRender();
 
     return (
       <>
@@ -41,35 +42,38 @@ const Demo = demo();
 ## 完整示例
 
 ```jsx
-function demo(props, render) {
+function demo() {
+  let render;
+  let props;
+
   // for useState
   let loading = true;
   let data;
   let count = 0;
 
   // for useMemo
-  const getPower = () => count * count;
-  let power = getPower();
+  const getPower = (x) => x * x;
+  let power = getPower(count);
 
   // for useRef
-  const themeRef = { current: null };
+  const countRef = { current: null };
 
   // for useCallback
   const onClick = () => {
-    const { setTheme } = props; // for props
+    const { setTheme } = props;
     setTheme();
 
     count = count + 1;
-    power = getPower();
+    power = getPower(count);
 
     render(() => {
-      // for useEffect or useLayoutEffect
-      console.log('themeRef', themeRef.current);
+      // for useEffect | useLayoutEffect
+      console.log('countRef', countRef.current);
     });
   };
 
   // for "useMount"
-  const onMount = () => {
+  const getData = () => {
     request().then((res) => {
       data = res.data;
       loading = false;
@@ -77,15 +81,23 @@ function demo(props, render) {
     });
   };
 
+  const onReload = () => {
+    loading = true;
+    render();
+    getData();
+  };
+
   return (next) => {
-    [props, render] = useProps(next, onMount);
+    render = useRender(getData);
+    props = next;
     const { theme } = next;
 
     return (
       <>
         <h1>{loading ? 'loading...' : JSON.stringify(data)}</h1>
-        <h1 ref={themeRef}>{theme}</h1>
-        <h1>{count}</h1>
+        <button onClick={onReload}>Reload data</button>
+        <h1>{theme}</h1>
+        <h1 ref={countRef}>{count}</h1>
         <h1>{power}</h1>
         <button onClick={onClick}>Click me</button>
       </>
@@ -96,35 +108,35 @@ function demo(props, render) {
 
 ## 在线演示
 
-[![Edit react-split-components-4](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/react-split-components-4-y8hn8?fontsize=14&hidenavigation=1&theme=dark)
+[![Edit react-split-components-final](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/react-split-components-final-9ftjx?fontsize=14&hidenavigation=1&theme=dark)
 
 ## 辅助函数
 
-`useProps` 实现示例：
+`useRender` 实现示例：
 
 ```jsx
-const useProps = (props, onMount, isLayoutMount) => {
+const useRender = (onMounted, isLayoutMount) => {
   const [, setState] = useState(false);
-  const [layoutEffect, setLayoutEffect] = useState();
-  const [effect, setEffect] = useState();
 
-  const onLayoutMountRef = useRef(isLayoutMount && onMount);
-  const onMountRef = useRef(!isLayoutMount && onMount);
+  const layoutMountedRef = useRef(isLayoutMount && onMounted);
+  const mountedRef = useRef(!isLayoutMount && onMounted);
+  useLayoutEffect(() => layoutMountedRef.current?.(), []);
+  useEffect(() => mountedRef.current?.(), []);
 
-  useLayoutEffect(() => onLayoutMountRef.current?.(), []);
-  useEffect(() => onMountRef.current?.(), []);
-  useLayoutEffect(() => layoutEffect?.(), [layoutEffect]);
-  useEffect(() => effect?.(), [effect]);
+  const [layoutUpdated, setLayoutUpdated] = useState();
+  const [updated, setUpdated] = useState();
+  useLayoutEffect(() => layoutUpdated?.(), [layoutUpdated]);
+  useEffect(() => updated?.(), [updated]);
 
-  const render = useCallback((callback, isLayoutEffect) => {
-    setState((state) => !state);
-    if (typeof callback === 'function') {
-      (isLayoutEffect ? setLayoutEffect : setEffect)(() => callback);
+  return useCallback((onUpdated, isLayoutUpdate) => {
+    setState((s) => !s);
+    if (typeof onUpdated === 'function') {
+      (isLayoutUpdate ? setLayoutUpdated : setUpdated)(() => onUpdated);
     }
   }, []);
-
-  return [props, render];
 };
+
+export default useRender;
 ```
 
 ## 协议

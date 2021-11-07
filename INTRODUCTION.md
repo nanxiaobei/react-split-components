@@ -10,35 +10,35 @@ English | [简体中文](./INTRODUCTION.zh-CN.md)
 
 **1. Why Function Components?**
 
-Why does React officially promote Functional Components? Class Components is "not unusable".
+Why does React officially promote Functional Components? Class Components isn't "unusable".
 
-Because Functional Components are more in line with the philosophy of `UI = f(state)`.
+Because Functional Components are more in line with React's philosophy `UI = f(state)`.
 
-So Hooks came, bringing "internal variables" and "side effects" to Function Components to make them fully functional, and it is also the official solution for "logic sharing".
+So Hooks came, bringing "internal variables" and "side effects" to Function Components, making them fully functional. it's also a "logical sharing" solution.
 
-**2. The Problem of Function Components**
+**2. The problem of Function Components**
 
-Because every time the function is called, all internal variables are re-created, which is a bit wrong in the past development intuition.
+Because every time the function is called, all the internal variables are created again, which is a bit wrong in the development intuition.
 
-`UI = f(state)` looks like a pure function. Pass `state` and return `UI`.
+`UI = f(state)` looks like a pure function, pass `state` and return `UI`.
 
-It's like `rice = electricCooker(rice)`, but if the `electricCooker` rebuilds its "circuit system" every time it cooks, it is counter-intuitive.
+Like `rice = electricCooker(rice)`, but if the `electricCooker` rebuilds its "circuit system" every time it cooks, it's counter-intuitive.
 
 We hope that `f` is simply "cooking", and other functions are already "carried" instead of "create" every time.
 
-**3. The Problem of Hooks**
+**3. The problem of Hooks**
 
-To solve the problem of creating internal variables, React provides `useState`, `useCallback`, `useMemo`, `useRef`.
+To solve the problem of re-creating variables, React provides `useState`, `useCallback`, `useMemo`, `useRef`.
 
-`state` must be created with `useState`. The complex data types (function, array, object) passed to the sub-component `props` must be wrap with `useCallback`, `useMemo` (variables with a large amount of calculation must also be wrapped with `useMemo`). If you need to keep the variables, you have to wrap it with `useRef`.
+State needs to be created with `useState`. For complex data types (function, array, object) passed to sub-components, use `useCallback`, `useMemo` to wrap (for large calculations, use `useMemo` too). To keep a variable, wrap it with `useRef`.
 
-In the implementation of `useEffect` and `useCallback`, `useMemo`, there must be `deps`.
+In the implementation of `useEffect`, `useCallback` and `useMemo`, there must be a thing called `deps`.
 
-All the above makes Hooks very counter-intuitive to write. Don't I just use a variable or a function, why do I have to wrap it up?
+All the above makes Hooks very counter-intuitive to write. Don't I just use a variable or a function, why do I have to wrap it?
 
-Can't be just like Svelte?
+Can't write code like Svelte?
 
-![](https:////s6.jpg.cm/2021/11/06/IjfqGp.jpg)
+<img src="https://s6.jpg.cm/2021/11/06/IjfqGp.jpg" width="440" alt="" />
 
 ## 2. Solve the Problem
 
@@ -50,7 +50,7 @@ function Demo(state) {
 }
 ```
 
-**2. In practice, React is like this:**
+**2. This is how React works:**
 
 ```jsx
 function Demo(props) {
@@ -58,12 +58,12 @@ function Demo(props) {
 }
 ```
 
-**3. If component needs to "carry" values and functions, instead of re-creating each time, they cannot be written inside component:**
+**3. If the component needs to "carry" state and functions, instead of creating new ones each time, it cannot be written in the component:**
 
 ```jsx
 let count = 0;
 const onClick = () => {
-  count = count + 1;
+  count += 1;
 };
 
 function Demo() {
@@ -71,15 +71,16 @@ function Demo() {
 }
 ```
 
-Writing separately destroys the unity, which is not good. Is there a way to make component hold external variables, but also write in one function?
+Writing separately destroys the unity, which is not good. Is there a way to make the component hold external variables, and also write together in one function?
 
-**4. Naturally, we thought of closure (note that component are returned internally):**
+**4. Naturally, we thought of closure (note that the component are returned internally):**
 
 ```jsx
 function createDemo() {
   let count = 0;
+
   const onClick = () => {
-    count = count + 1;
+    count += 1;
   };
 
   return function Demo() {
@@ -90,19 +91,29 @@ function createDemo() {
 const Demo = createDemo();
 ```
 
-At this time, the `onClick` function never needs to be wrapped with `useCallback`, because it will never be re-created. Using the closure pattern, **we successfully lifted the dependency on `useCallback`**.
+Simplified writing:
+
+```jsx
+function demo() {
+  return () => <div />;
+}
+
+const Demo = demo();
+```
+
+Now the `onClick` function doesn't need to be wrapped with `useCallback` because it will never be re-created. With closure, **we successfully lifted the dependency on `useCallback`**.
 
 So far, I'm actually finished... Huh? How to use this component?!
 
 ## 3. Make Abilities Complete
 
-**1. Implement `state` update:**
+**1. Solve `useState` and component update:**
 
 ```jsx
-// A public auxiliary function
+// Public helper function
 const useRender = () => {
   const [, setState] = useState(false);
-  return useCallback(() => setState((state) => !state), []);
+  return useCallback(() => setState((s) => !s), []);
 };
 
 function demo() {
@@ -110,12 +121,13 @@ function demo() {
   let count = 0;
 
   const onClick = () => {
-    count = count + 1;
+    count += 1;
     render();
   };
 
   return () => {
     render = useRender();
+
     return (
       <>
         <h1>{count}</h1>
@@ -128,38 +140,46 @@ function demo() {
 const Demo = demo();
 ```
 
-Transfer `setState` function inside component to the external variable `render` by "re-assignment". When need update, manually call `render()` (Of course, the function name is arbitrary, such as `update`, here is a design pattern, there are no constraints on the specific implementation).
+The `setState`, which is only in the component, is "re-assigned" to the external variable `render` for use outside the component. If you need to update, manually call `render()` (Of course, the function name is arbitrary, such as `update`, here is the design pattern, there are no constraints on the specific implementation).
 
 As a result, **we successfully lifted the dependency on `useState`**.
 
 Above is already a usable component, try it here: [codesandbox.io/s/react-split-components-1-ycw80](https://codesandbox.io/s/react-split-components-1-ycw80?file=/src/App.js)
 
-**2. Implement `props` usage:**
+**2. Solve `useMemo`, `useRef`, solve props:**
 
 ```jsx
 function demo() {
-  let props;
   let render;
+  let props;
+
+  const getPower = (x) => x * x;
 
   let count = 0;
+  let power = getPower(count); // for useMemo
+  const countRef = { current: null }; // for useRef
+
   const onClick = () => {
-    // Deconstruction must be written inside the function,
-    // because the external initial value of `props` is `undefined`
+    // "props" deconstruction must be written inside function,
+    // because external initial value of "props" is undefined
     const { setTheme } = props;
     setTheme();
 
-    count = count + 1;
+    count += 1;
+    power = getPower(count);
     render();
   };
 
-  return (newProps) => {
-    props = newProps;
+  return (next) => {
     render = useRender();
-    const { theme } = newProps;
+    props = next;
+    const { theme } = next;
+
     return (
       <>
         <h1>{theme}</h1>
-        <h1>{count}</h1>
+        <h1 ref={countRef}>{count}</h1>
+        <h1>{power}</h1>
         <button onClick={onClick}>Click me</button>
       </>
     );
@@ -169,89 +189,49 @@ function demo() {
 const Demo = demo();
 ```
 
-Similar to `render`, `props` is also passed to an external variable in "re-assignment" manner to use outside of component.
+`props` is passed out as "re-assignment" like `render`. Then we think about it carefully: through closure, `useMemo` and `useRef` are actually no longer needed.
 
-Think about it carefully: through the closure model, `useMemo` and `useRef` are naturally unnecessary.
+`useMemo` and `useRef` are because variables are created every time and need to be wrapped. With closure, variables won't be re-created, the component will naturally hold updated values of variables. All of these are the operating mechanism of JS, naturally.
 
-`useMemo` is because the complex data is re-created every time and needs to be wrapped, but using closure, this is not necessary. And `useMemo` similar to the calculation mechanism of `computed`, just change it to manual trigger. To change the declarative programing of `useMemo` to the imperative programing of "manual call", which is more intuitive (just like the era of Class Components).
-
-`useRef` is because the variable is re-created every time, it has to be wrapped, and using closure, yes, there is no re-create, and the component naturally holds the updated value of the variable. All of this is the operating mechanism of JS. Everything is natural.
+The calculation mechanism like computed of `useMemo`, can be changed to manual trigger. Change declarative writing of `useMemo`, to the imperative writing of "manual call", which is more intuitive (just like Class Components).
 
 Therefore, **we successfully lifted the dependence on `useMemo` and `useRef`**.
 
-**3. Simplified writing:**
-
-```jsx
-const useProps = (props) => {
-  const [, setState] = useState(false);
-  return [props, useCallback(() => setState((state) => !state), [])];
-};
-
-function demo(props, render) {
-  let count = 0;
-
-  const onClick = () => {
-    count = count + 1;
-    render();
-  };
-
-  return (next) => {
-    [props, render] = useProps(next);
-    return (
-      <>
-        <h1>{count}</h1>
-        <button onClick={onClick}>Click me</button>
-      </>
-    );
-  };
-}
-
-const Demo = demo();
-```
-
-Because every time creating a new component, we have to define the two variables `props` and `render`, and then assign values to both inside component. So we simplify it, put `props` and `render` variable initialization to the function parameters (initials are all `undefined`), and make the assignment done in one line.
-
-Of course, there is an ESLint rule (`no-param-reassign`) that prohibits parameter re-assignment, so it is still: how to write is up to you.
-
 Try the above code here: [codesandbox.io/s/react-split-components-2-wl46b](https://codesandbox.io/s/react-split-components-2-wl46b?file=/src/App.js)
 
-**4. Get rid of `useEffect` and `useLayoutEffect`**
-
-We have successfully resolved the dependency on `useState`, `useCallback`, `useMemo`, and `useRef`. Hooks bring two abilities to Function Components, "internal variables" and "side effects". The previous Hooks are used to deal with "internal variables", using closure can solve it naturally.
-
-So what about "side effects"? We use the `render` function:
+**3. Solve `useEffect` and `useLayoutEffect`:**
 
 ```jsx
-const useProps = (props) => {
+const useRender = () => {
   // Omit other code...
-  const [layoutEffect, setLayoutEffect] = useState();
-  const [effect, setEffect] = useState();
+  const [layoutUpdated, setLayoutUpdated] = useState();
+  const [updated, setUpdated] = useState();
 
-  useLayoutEffect(() => layoutEffect?.(), [layoutEffect]);
-  useEffect(() => effect?.(), [effect]);
+  useLayoutEffect(() => layoutUpdated?.(), [layoutUpdated]);
+  useEffect(() => updated?.(), [updated]);
 
-  const render = useCallback((callback, isLayoutEffect) => {
+  return useCallback((onUpdated, isLayoutUpdate) => {
     // Omit other code...
-    if (typeof callback === 'function') {
-      (isLayoutEffect ? setLayoutEffect : setEffect)(() => callback);
+    if (typeof onUpdated === 'function') {
+      (isLayoutUpdate ? setLayoutUpdated : setUpdated)(() => onUpdated);
     }
   }, []);
-
-  return [props, render];
 };
 
-function demo(props, render) {
+function demo() {
+  let render;
   let count = 0;
 
   const onClick = () => {
-    count = count + 1;
+    count += 1;
     render(() => {
-      console.log(count); // callback will be called in useEffect
+      console.log(count); // Will be called in useEffect
     });
   };
 
-  return (next) => {
-    [props, render] = useProps(next);
+  return () => {
+    render = useRender();
+
     return (
       <>
         <h1>{count}</h1>
@@ -264,49 +244,46 @@ function demo(props, render) {
 const Demo = demo();
 ```
 
-We can add additional functions too, but it is more concise to use the ready-made `render`.
+Use the existing `render` function to implement `useEffect`, which is more concise (of course you can add another function).
 
-`render()` can be called directly or passed in parameters, `render(callback, isLayoutEffect)`, judged by the second parameter, callback will be called in `useEffect` or `useLayoutEffect`. Note: In theory, `render` can be called multiple times (although this is incorrect), but React only triggers one update, so if callback is passed in each time, only the last callback will be take.
+Now `render()` can be called directly, or passed in parameters `render(onUpdated, isLayoutUpdate)`, `isLayoutUpdate` determines `onUpdated` called in `useEffect` or `useLayoutEffect`. Note: In theory `render` can be called multiple times, but React only triggers one update, so if `onUpdated` is passed in each time, only the last one will call.
 
 As a result, **we successfully lifted the dependency on `useEffect` and `useLayoutEffect`**.
 
 Try it here: [codesandbox.io/s/react-split-components-3-zw6tk](https://codesandbox.io/s/react-split-components-3-zw6tk?file=/src/App.js)
 
-**5. Implement the initial API request**
+**4. Solve "useMount"**
 
-React components have a very basic requirement. Send API requests in didMount, but after Hooks unified didMount and didUpdate into `useEffect`, This requirement has one more step to understand.
+React components have a very basic requirement. Send API requests in didMount. After Hooks unified didMount and didUpdate to `useEffect`, there was an additional step to understand this requirement, so "useMount" was implemented in countless projects.
 
-Therefore, countless projects have implemented `useMount` by themselves. Hooks' original intention is to reuse, but for such a simple and basic requirement, it seems strange to install a lib, so countless people have implemented a `useMount` by themselves, which brings How much duplication of work, Hooks' original intention is "reuse".
-
-In the above scheme, external variables (like `render`) have to be assigned after the component is rendered for the first time. This brings about a problem: `render` is only available after the first `useEffect` (that is, it is impossible to call `callback` in the first `useEffect`).
-
-What about "useMount"? Here, we use the parameters of `useProps` to achieve this.
+In the above scheme, external variables will be assigned after the first render of the component. This brings a problem: `render` is only available after the first `useEffect` (so the parameter is named as `onUpdated`), then how to achieve "useMount"? Let's use the parameter of `useRender`.
 
 ```jsx
-const useProps = (props, onMount, isLayoutMount) => {
+const useRender = (onMounted, isLayoutMount) => {
   // Omit other code...
-  const onLayoutMountRef = useRef(isLayoutMount && onMount);
-  const onMountRef = useRef(!isLayoutMount && onMount);
+  const layoutMountedRef = useRef(isLayoutMount && onMounted);
+  const mountedRef = useRef(!isLayoutMount && onMounted);
 
-  useLayoutEffect(() => onLayoutMountRef.current?.(), []);
-  useEffect(() => onMountRef.current?.(), []);
+  useLayoutEffect(() => layoutMountedRef.current?.(), []);
+  useEffect(() => mountedRef.current?.(), []);
 
   // Omit other code...
-  return [props, render];
 };
 
-function demo(props, render) {
+function demo() {
+  let render;
   let data;
 
-  const onMount = () => {
+  const onMounted = () => {
     request().then((res) => {
       data = res.data;
       render();
     });
   };
 
-  return (next) => {
-    [props, render] = useProps(next, onMount);
+  return () => {
+    render = useRender(onMounted);
+
     return (
       <>
         <h1>{JSON.stringify(data)}</h1>
@@ -320,11 +297,11 @@ const Demo = demo();
 
 That's it, try it here: [codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
 
-**6. Other Hooks**
+**5. Other Hooks**
 
 So far, we have solved `useState`, `useEffect`, `useCallback`, `useMemo`, `useRef`, `useLayoutEffect`, these are the most commonly used in development. There are 4 remaining official Hooks: `useContext`, `useReducer`, `useImperativeHandle`, `useDebugValue`, I will not deal with them one by one.
 
-Make it simply: **If a variable can only be accessed inside component, needs to be use outside, pass it out by re-assignment**.
+Make it simply: **If a variable can only be obtained in the component, needs to be used outside, pass it out by re-assignment**.
 
 In this design mode, any existing requirement can be realized, so-called "abilities complete".
 
@@ -332,11 +309,11 @@ In this design mode, any existing requirement can be realized, so-called "abilit
 
 Just like Higher-Order Components, this design pattern needs a name.
 
-Considering that using closure splits "variables + logics" and "component code", learning the naming style of React Server Components, I named it **React Split Components**, which can be abbreviated as **RiC**, the small **`i`** here is a good expression of the "split" feature (Mainly after searching, I found that RSC, RPC, RLC, RTC are all occupied. Oh, the "split" has only 5 letters.).
+Considering that closure splits "variables + logics" and "component code", learning the naming style of React Server Components, I named it **React Split Components**, which can be abbreviated as **RiC**, the small **`i`** here is a good expression of the "split" feature (Mainly after searching, I found that RSC, RPC, RLC, RTC are all occupied. Oh, the "split" has only 5 letters.).
 
 Features of React Split Components:
 
-**1. Remove the dependence on Hooks, but not previous pure Functional Components**
+**1. Remove the dependence on Hooks, but not old pure Functional Components**
 
 Through closure, no Hooks are required to wrap. This allows React developers to free themselves from the "counter-intuition of Functional Components" and "cumbersomeness of Hooks" and write pure JS intuitive code similar with Svelte.
 
@@ -344,15 +321,15 @@ After all, closure is a natural feature of JS.
 
 **2. Adjust only at the writing level, without ESLint support**
 
-In fact, when designing the implementation of `useEffect`, I thought of a way to use existing code: change `useEffect(fn, deps)` to `watch(deps, fn)`. But if like this, the `deps` of `watch` will need an ESLint plugin to support (because Hooks `deps` needs plugin support, otherwise it will easy to make mistakes).
+In fact, when designing the implementation of `useEffect`, I thought of a way to use existing code: change `useEffect(fn, deps)` to `watch(deps, fn)`. But if like this, the `deps` of `watch` will need an ESLint plugin to support (because Hooks `deps` needs plugin support, otherwise it will easy to make mistake).
 
-If not necessary, do not add entities. We want to achieve as natural as possible, as simple as possible, as intuitive as possible. Turning `useMemo` into imperative programming is more intuitive, conforms to the habit of the Class Components, so the current implementation is the result of trade-offs.
+If not necessary, do not add entity. We want to achieve as natural as possible, as simple as possible, as intuitive as possible.
 
-**3. Similar to "High-Order Components", it is a "design pattern", not API, no library support**
+**3. Like "High-Order Components", it's a "design pattern", not API, no lib support**
 
-It's not an official React API and does not need to be supported by building tools (such as React Server Components).
+It's not an official React API, doesn't need to be support by building tools (such as React Server Components).
 
-It does not need 3rd-party lib support (in fact, `useProps` can be encapsulated to a npm package, but considering that everyone has different habits and needs, you can implement the auxiliary function yourself, write it as one or separate, handle more cases, or use another name, the above code can be used as a reference).
+It doesn't need 3rd-party lib support (`useRender` can be encapsulated to a npm package, but considering that everyone has different habits and needs, you can implement the helper function yourself, the above code can be a reference).
 
 React Split Components final code demo: [codesandbox.io/s/react-split-components-final-9ftjx](https://codesandbox.io/s/react-split-components-final-9ftjx?file=/src/App.js)
 
@@ -361,16 +338,18 @@ React Split Components final code demo: [codesandbox.io/s/react-split-components
 React Split Components (RiC) example:
 
 ```jsx
-function demo(props, render) {
+function demo() {
+  let render;
   let count = 0;
 
   const onClick = () => {
-    count = count + 1;
+    count += 1;
     render();
   };
 
-  return (next) => {
-    [props, render] = useProps(next);
+  return () => {
+    render = useRender();
+
     return (
       <>
         <h1>{count}</h1>
@@ -383,4 +362,4 @@ function demo(props, render) {
 const Demo = demo();
 ```
 
-How Svelte, how intuitive, how auto optimized performance and bye bye Hooks.
+How Svelte, how intuitive, How performance is auto optimized and bye bye Hooks.
