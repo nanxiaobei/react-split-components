@@ -313,19 +313,19 @@ Considering that closure splits "variables + logics" and "component code", learn
 
 Features of React Split Components:
 
-**1. Remove the dependence on Hooks, but not old pure Functional Components**
+**1. Remove the dependence on Hooks, but not purely Functional Components**
 
 Through closure, no Hooks are required to wrap. This allows React developers to free themselves from the "counter-intuition of Functional Components" and "cumbersomeness of Hooks" and write pure JS intuitive code similar with Svelte.
 
 After all, closure is a natural feature of JS.
 
-**2. Adjust only at the writing level, without ESLint support**
+**2. Only at the writing level, no need for ESLint support**
 
 In fact, when designing the implementation of `useEffect`, I thought of a way to use existing code: change `useEffect(fn, deps)` to `watch(deps, fn)`. But if like this, the `deps` of `watch` will need an ESLint plugin to support (because Hooks `deps` needs plugin support, otherwise it will easy to make mistake).
 
 If not necessary, do not add entity. We want to achieve as natural as possible, as simple as possible, as intuitive as possible.
 
-**3. Like "High-Order Components", it's a "design pattern", not API, no lib support**
+**3. Like High-Order Components, it's a "design pattern", not API, no lib needed**
 
 It's not an official React API, doesn't need to be support by building tools (such as React Server Components).
 

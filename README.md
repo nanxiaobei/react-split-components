@@ -14,6 +14,12 @@ React Function Components in closure style.
 
 Write React like Svelte, just natural and fluent code.
 
+## Features
+
+- Remove the dependence on Hooks, but not purely Functional Components
+- Only at the writing level, no need for ESLint support
+- Like High-Order Components, it's a "design pattern", not API, no lib needed
+
 ## Simple Example
 
 ```jsx
