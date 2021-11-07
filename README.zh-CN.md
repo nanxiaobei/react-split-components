@@ -12,7 +12,7 @@
 
 闭包模式的 React 函数组件。
 
-像 Svelte 一样编写 React，最自然流畅的代码。
+像写 Svelte 一样写 React，最自然流畅的代码。
 
 ## 简单示例
 
@@ -48,19 +48,19 @@ function demo() {
   let render;
   let props;
 
-  // solve useState
+  // 解决 useState
   let loading = true;
   let data;
   let count = 0;
 
-  // solve useMemo
+  // 解决 useMemo
   const getPower = (x) => x * x;
   let power = getPower(count);
 
-  // solve useRef
+  // 解决 useRef
   const countRef = { current: null };
 
-  // solve useCallback
+  // 解决 useCallback
   const onClick = () => {
     const { setTheme } = props;
     setTheme();
@@ -69,12 +69,12 @@ function demo() {
     power = getPower(count);
 
     render(() => {
-      // solve useEffect | useLayoutEffect
+      // 解决 useEffect | useLayoutEffect
       console.log('countRef', countRef.current);
     });
   };
 
-  // solve "useMount"
+  // 解决 "useMount"
   const getData = () => {
     request().then((res) => {
       data = res.data;
