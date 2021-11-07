@@ -41,7 +41,7 @@ function demo() {
 const Demo = demo();
 ```
 
-## Complete Example
+## Full Example
 
 ```jsx
 function demo() {
