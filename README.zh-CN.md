@@ -10,7 +10,9 @@
 
 [React Split Components 介绍 →](./INTRODUCTION.zh-CN.md)
 
-像 Svelte 一样写 React，最自然的代码。
+闭包模式的 React 函数组件。
+
+像 Svelte 一样编写 React，最自然流畅的代码。
 
 ## 简单示例
 

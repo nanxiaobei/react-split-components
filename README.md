@@ -10,9 +10,9 @@ English | [简体中文](./README.zh-CN.md)
 
 [Introducing React Split Components →](./INTRODUCTION.md)
 
-Native JS closure for React Function Components.
+React Function Components in closure style.
 
-Write React like Svelte, just natural and fluent Code.
+Write React like Svelte, just natural and fluent code.
 
 ## Simple Example
 
