@@ -41,7 +41,7 @@ const Demo = demo();
 ## 完整示例
 
 ```jsx
-const demo = (props, render) => {
+function demo(props, render) {
   // for useState
   let loading = true;
   let data;
@@ -63,7 +63,8 @@ const demo = (props, render) => {
     power = getPower();
 
     render(() => {
-      console.log('themeRef', themeRef.current); //  for useEffect or useLayoutEffect
+      // for useEffect or useLayoutEffect
+      console.log('themeRef', themeRef.current);
     });
   };
 
@@ -90,7 +91,7 @@ const demo = (props, render) => {
       </>
     );
   };
-};
+}
 ```
 
 ## 在线演示
