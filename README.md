@@ -1,5 +1,7 @@
 # React Split Components (RiC)
 
+A new way of Function Components without Hooks.
+
 English · [简体中文](./README.zh-CN.md)
 
 ---
@@ -7,8 +9,6 @@ English · [简体中文](./README.zh-CN.md)
 ## Introduction
 
 [Introducing React Split Components →](./INTRODUCTION.md)
-
-A new way of Function Components without Hooks.
 
 Write React like Svelte, the most natural code.
 
