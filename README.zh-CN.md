@@ -48,19 +48,19 @@ function demo() {
   let render;
   let props;
 
-  // for useState
+  // solve useState
   let loading = true;
   let data;
   let count = 0;
 
-  // for useMemo
+  // solve useMemo
   const getPower = (x) => x * x;
   let power = getPower(count);
 
-  // for useRef
+  // solve useRef
   const countRef = { current: null };
 
-  // for useCallback
+  // solve useCallback
   const onClick = () => {
     const { setTheme } = props;
     setTheme();
@@ -69,12 +69,12 @@ function demo() {
     power = getPower(count);
 
     render(() => {
-      // for useEffect | useLayoutEffect
+      // solve useEffect | useLayoutEffect
       console.log('countRef', countRef.current);
     });
   };
 
-  // for "useMount"
+  // solve "useMount"
   const getData = () => {
     request().then((res) => {
       data = res.data;
