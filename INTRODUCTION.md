@@ -2,7 +2,7 @@
 
 A new way of Function Components without Hooks.
 
-English · [简体中文](./INTRODUCTION.zh-CN.md)
+English | [简体中文](./INTRODUCTION.zh-CN.md)
 
 ---
 

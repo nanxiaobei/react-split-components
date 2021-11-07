@@ -2,7 +2,7 @@
 
 一种全新的 React 函数组件写法，再不需要 Hooks。
 
-[English](./INTRODUCTION.md) · 简体中文
+[English](./INTRODUCTION.md) | 简体中文
 
 ---
 
