@@ -91,17 +91,24 @@ function createDemo() {
 const Demo = createDemo();
 ```
 
-Simplified writing:
+Now the `onClick` function doesn't need to be wrapped with `useCallback` because it will never be re-created. With closure, **we successfully lifted the dependency on `useCallback`**.
+
+But closure has a problem: all component instances share one piece closure data. of course this is incorrect.
+
+**5. Solve the data sharing problem of closure, generate each component instance's own closure data dynamically:**
 
 ```jsx
+const create = (fn) => (props) => {
+  const [ins] = useState(() => fn());
+  return ins(props);
+};
+
 function demo() {
   return () => <div />;
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
-
-Now the `onClick` function doesn't need to be wrapped with `useCallback` because it will never be re-created. With closure, **we successfully lifted the dependency on `useCallback`**.
 
 So far, I'm actually finished... Huh? How to use this component?!
 
@@ -137,7 +144,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 The `setState`, which is only in the component, is "re-assigned" to the external variable `render` for use outside the component. If you need to update, manually call `render()` (Of course, the function name is arbitrary, such as `update`, here is the design pattern, there are no constraints on the specific implementation).
@@ -186,7 +193,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 `props` is passed out as "re-assignment" like `render`. Then we think about it carefully: through closure, `useMemo` and `useRef` are actually no longer needed.
@@ -241,7 +248,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 Use the existing `render` function to implement `useEffect`, which is more concise (of course you can add another function).
@@ -292,7 +299,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 That's it, try it here: [codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
@@ -359,7 +366,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 How Svelte, how intuitive, How performance is auto optimized and bye bye Hooks.

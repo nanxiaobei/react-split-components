@@ -91,17 +91,24 @@ function createDemo() {
 const Demo = createDemo();
 ```
 
-简化写法：
+此时，`onClick` 函数不需要用 `useCallback` 包装，因为它永远不会被新建。使用闭包模式，**我们成功解除了对 `useCallback` 的依赖**。
+
+但闭包有个问题：所有组件实例都共享了一份闭包数据。这当然是不行的。
+
+**5. 解决闭包的数据共享问题，动态生成每个组件实例自己的闭包数据即可：**
 
 ```jsx
+const create = (fn) => (props) => {
+  const [ins] = useState(() => fn());
+  return ins(props);
+};
+
 function demo() {
   return () => <div />;
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
-
-此时，`onClick` 函数不需要用 `useCallback` 包装，因为它永远不会被新建。使用闭包模式，**我们成功解除了对 `useCallback` 的依赖**。
 
 写到这里，其实已经讲完了 ... 嗯？那这组件怎么用呢？！
 
@@ -137,7 +144,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 将组件内才有的 `setState`，被 "重新赋值" 给外部变量 `render`，供组件外使用。若需更新，手动调用 `render()` 即可（当然，函数命名随意比如 `update`，这里介绍的是设计模式，具体实现没什么约束）。
@@ -185,7 +192,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 `props` 与 `render` 一样以 "重新赋值" 传递出去。然后我们仔细想一下：通过闭包，`useMemo` 与 `useRef` 其实已经不需要了。
@@ -240,7 +247,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 利用已有的 `render` 函数来实现 `useEffect`，这样更简洁（当然也可以另加函数）。
@@ -291,7 +298,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 这样就行了，在这里试试：[codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
@@ -358,7 +365,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 多么 Svelte，多么直觉，多么性能自动最优化 bye bye Hooks。

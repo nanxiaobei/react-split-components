@@ -44,7 +44,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 ## Full Example
@@ -112,6 +112,8 @@ function demo() {
     );
   };
 }
+
+const Demo = create(demo);
 ```
 
 ## Online Demo
@@ -120,9 +122,18 @@ function demo() {
 
 ## Helper Function
 
+`create` implementation example:
+
+```js
+const create = (fn) => (props) => {
+  const [ins] = useState(() => fn());
+  return ins(props);
+};
+```
+
 `useRender` implementation example:
 
-```jsx
+```js
 const useRender = (onMounted, isLayoutMount) => {
   const [, setState] = useState(false);
 

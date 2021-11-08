@@ -44,7 +44,7 @@ function demo() {
   };
 }
 
-const Demo = demo();
+const Demo = create(demo);
 ```
 
 ## 完整示例
@@ -112,6 +112,8 @@ function demo() {
     );
   };
 }
+
+const Demo = create(demo);
 ```
 
 ## 在线演示
@@ -119,6 +121,15 @@ function demo() {
 [![Edit react-split-components-final](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/react-split-components-final-9ftjx?fontsize=14&hidenavigation=1&theme=dark)
 
 ## 辅助函数
+
+`create` 实现示例：
+
+```js
+const create = (fn) => (props) => {
+  const [ins] = useState(() => fn());
+  return ins(props);
+};
+```
 
 `useRender` 实现示例：
 

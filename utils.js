@@ -7,7 +7,13 @@ import {
 } from 'react';
 
 // Demo: https://codesandbox.io/s/react-split-components-final-9ftjx?file=/src/App.js
-const useRender = (onMounted, isLayoutMount) => {
+
+export const create = (fn) => (props) => {
+  const [ins] = useState(() => fn());
+  return ins(props);
+};
+
+export const useRender = (onMounted, isLayoutMount) => {
   const [, setState] = useState(false);
 
   const layoutMountedRef = useRef(isLayoutMount && onMounted);
@@ -27,5 +33,3 @@ const useRender = (onMounted, isLayoutMount) => {
     }
   }, []);
 };
-
-export default useRender;
