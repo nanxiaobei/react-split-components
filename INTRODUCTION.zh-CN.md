@@ -199,7 +199,7 @@ const Demo = create(demo);
 
 `useMemo` 和 `useRef` 是因为变量每次都新建，得包一下，而使用闭包，变量不会新建，且组件天然持有变量更新后的值，这一切都是 JS 的运行机制，自然而然。
 
-而 `useMemo` 的类似 computed 的运算机制，改成手动触发即可。把 `useMemo` 的声明式写法改为 "手动调用" 的命令式写法，这更符合直觉（就像 class 组件时代一样）。
+而 `useMemo` 的类似 computed 的运算机制，可改为手动触发的「命令式编程」（当然，也可以用 `Proxy` 等自行实现类似的 computed 功能，不过这不是重点）。
 
 于是，**我们成功解除了对 `useMemo`、`useRef` 的依赖**。
 

@@ -200,7 +200,7 @@ const Demo = create(demo);
 
 `useMemo` and `useRef` are because variables are created every time and need to be wrapped. With closure, variables won't be re-created, the component will naturally hold updated values of variables. All of these are the operating mechanism of JS, naturally.
 
-The calculation mechanism like computed of `useMemo`, can be changed to manual trigger. Change declarative writing of `useMemo`, to the imperative writing of "manual call", which is more intuitive (just like Class Components).
+The calculation mechanism like computed of `useMemo`, can be changed to manual trigger. Change declarative writing of `useMemo`, to the imperative writing of "manual call", which is more intuitive.
 
 Therefore, **we successfully lifted the dependence on `useMemo` and `useRef`**.
 
