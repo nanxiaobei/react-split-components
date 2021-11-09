@@ -14,7 +14,7 @@
 
 因为函数组件更符合 React `UI = f(state)` 的哲学理念。
 
-于是 Hooks 来了，给函数组件带来了 "内部变量" 与 "副作用"，使其功能完备。同时也是 "逻辑共享" 解决方案。
+于是 Hooks 来了，给函数组件带来了 "内部变量" 与 "副作用"，使其功能完备。同时也是 "逻辑共享" 的解决方案。
 
 **2. 函数组件的问题**
 
@@ -36,7 +36,7 @@ state 得用 `useState` 包一下。传给子组件的复杂数据类型（函�
 
 以上种种，都让 Hooks 写起来非常反直觉。我不就是用个变量、用个函数，怎么还得包一层？
 
-不能像 Svelte 那样写代码吗？
+像 Svelte 那样写不好吗？
 
 <img src="https://s6.jpg.cm/2021/11/06/IjfqGp.jpg" width="440" alt="" />
 
@@ -71,7 +71,7 @@ function Demo() {
 }
 ```
 
-分开写破坏了一体性，不太好。有没有办法让组件既保有外部变量，又写在一个函数内？
+分开写破坏了一体性，不太好。能不能让组件既保有外部变量，又写在一个函数内？
 
 **4. 自然而然的，我们想到了闭包（注意内部返回的才是 React 组件）：**
 
@@ -91,11 +91,11 @@ function createDemo() {
 const Demo = createDemo();
 ```
 
-此时，`onClick` 函数不需要用 `useCallback` 包装，因为它永远不会被新建。使用闭包模式，**我们成功解除了对 `useCallback` 的依赖**。
+此时，`onClick` 函数永远不会被新建，因此无需用 `useCallback` 包装。使用闭包模式，**我们成功解除了对 `useCallback` 的依赖**。
 
-但闭包有个问题：所有组件实例都共享了一份闭包数据。这当然是不行的。
+但闭包有个问题：所有组件实例都共享了一份数据。这当然是不行的。
 
-**5. 解决闭包的数据共享问题，动态生成每个组件实例自己的闭包数据即可：**
+**5. 解决闭包的数据共享问题，动态生成每个组件实例自己的数据即可：**
 
 ```jsx
 const create = (fn) => (props) => {
@@ -117,14 +117,18 @@ const Demo = create(demo);
 **1. 解决 `useState` 与组件更新：**
 
 ```jsx
-// 公共辅助函数
-const useRender = () => {
+const create = (fn) => (props) => {
   const [, setState] = useState(false);
-  return useCallback(() => setState((s) => !s), []);
+
+  const [ins] = useState(() => {
+    const render = () => setState((s) => !s);
+    return fn({ render });
+  });
+
+  return ins(props);
 };
 
-function demo() {
-  let render;
+function demo({ render }) {
   let count = 0;
 
   const onClick = () => {
@@ -132,22 +136,13 @@ function demo() {
     render();
   };
 
-  return () => {
-    render = useRender();
-
-    return (
-      <>
-        <h1>{count}</h1>
-        <button onClick={onClick}>Click me</button>
-      </>
-    );
-  };
+  // 省略其它代码...
 }
 
 const Demo = create(demo);
 ```
 
-将组件内才有的 `setState`，"重新赋值" 给外部变量 `render`，供组件外使用。若需更新，手动调用 `render()` 即可（当然，函数命名随意比如 `update`，这里介绍的是设计模式，具体实现没什么约束）。
+利用 `create` 函数，将组件更新函数 `render` 从参数传入。若需更新，手动调用 `render` 即可（当然，函数命名随意比如 `update`，这里介绍的是设计模式，具体实现没什么约束）。
 
 于是，**我们成功解除了对 `useState` 的依赖**。
 
@@ -156,8 +151,7 @@ const Demo = create(demo);
 **2. 解决 `useMemo`、`useRef`，解决 props：**
 
 ```jsx
-function demo() {
-  let render;
+function demo({ render }) {
   let props;
 
   const getPower = (x) => x * x;
@@ -167,7 +161,7 @@ function demo() {
   const countRef = { current: null }; // for useRef
 
   const onClick = () => {
-    // props 解构必须写在函数内，因为外部初始 props 值为 undefined
+    // props 使用须写在函数内，因为外部初始 props 值为 undefined
     const { setTheme } = props;
     setTheme();
 
@@ -177,7 +171,6 @@ function demo() {
   };
 
   return (next) => {
-    render = useRender();
     props = next;
     const { theme } = next;
 
@@ -195,11 +188,11 @@ function demo() {
 const Demo = create(demo);
 ```
 
-`props` 与 `render` 一样以 "重新赋值" 传递出去。然后我们仔细想一下：通过闭包，`useMemo` 与 `useRef` 其实已经不需要了。
+以重新赋值的方式将 props 传递出去。然后我们仔细想一下：通过闭包，`useMemo` 与 `useRef` 其实已经不需要了。
 
-`useMemo` 和 `useRef` 是因为变量每次都新建，得包一下，而使用闭包，变量不会新建，且组件天然持有变量更新后的值，这一切都是 JS 的运行机制，自然而然。
+`useMemo` 和 `useRef` 是因为变量每次都新建，得包一下。而使用闭包，变量再不会新建，且组件天然保有变量更新后的值，这一切都是 JS 的自然运行机制。
 
-而 `useMemo` 的类似 computed 的运算机制，可改为手动触发的「命令式编程」（当然，也可以用 `Proxy` 等自行实现类似的 computed 功能，不过这不是重点）。
+而 `useMemo` 类似 watch 的运算机制，可改为手动触发的「命令式编程」（当然，也可以用 `Proxy` 等自行实现类似 watch 功能，不过这不是重点）。
 
 于是，**我们成功解除了对 `useMemo`、`useRef` 的依赖**。
 
@@ -208,38 +201,86 @@ const Demo = create(demo);
 **3. 解决 `useEffect` 与 `useLayoutEffect`：**
 
 ```jsx
-const useRender = () => {
-  // 省略其它代码...
-  const [layoutUpdated, setLayoutUpdated] = useState();
-  const [updated, setUpdated] = useState();
+const create = (fn) => (props, ref) => {
+  const [, setState] = useState(false);
 
-  useLayoutEffect(() => layoutUpdated?.(), [layoutUpdated]);
-  useEffect(() => updated?.(), [updated]);
+  const hasMount = useRef(false);
+  const prevProps = useRef(props);
+  const layoutUpdated = useRef();
+  const updated = useRef();
+  const layoutMounted = useRef();
+  const mounted = useRef();
 
-  return useCallback((onUpdated, isLayoutUpdate) => {
-    // 省略其它代码...
-    if (typeof onUpdated === 'function') {
-      (isLayoutUpdate ? setLayoutUpdated : setUpdated)(() => onUpdated);
-    }
+  useLayoutEffect(() => {
+    if (!hasMount.current || !layoutUpdated.current) return;
+    layoutUpdated.current(prevProps.current);
+  });
+
+  useEffect(() => {
+    if (!hasMount.current || !updated.current) return;
+    updated.current(prevProps.current);
+    prevProps.current = props;
+  });
+
+  useLayoutEffect(() => {
+    if (layoutMounted.current) return layoutMounted.current();
   }, []);
+
+  useEffect(() => {
+    hasMount.current = true;
+    if (mounted.current) return mounted.current();
+  }, []);
+
+  const [ins] = useState(() => {
+    const render = () => setState((s) => !s);
+
+    const onMounted = (callback, isLayout) => {
+      if (typeof callback !== 'function') return;
+      (isLayout ? layoutMounted : mounted).current = callback;
+    };
+
+    const onUpdated = (callback, isLayout) => {
+      if (typeof callback !== 'function') return;
+      (isLayout ? layoutUpdated : updated).current = callback;
+    };
+
+    return fn({ render, onMounted, onUpdated });
+  });
+
+  return ins(props, ref);
 };
 
-function demo() {
-  let render;
+function demo({ render, onMounted, onUpdated }) {
+  let props;
+  let data;
   let count = 0;
 
   const onClick = () => {
     count += 1;
-    render(() => {
-      console.log(count); // 将在 useEffect 中调用
+    render();
+  };
+
+  const getData = () => {
+    request().then((res) => {
+      data = res.data;
+      render();
     });
   };
 
-  return () => {
-    render = useRender();
+  onMounted(() => {
+    getData();
+  });
+
+  onUpdated((prevProps) => {
+    console.log(prevProps, props);
+  });
+
+  return (next) => {
+    props = next;
 
     return (
       <>
+        <h1>{loading ? 'loading...' : JSON.stringify(data)}</h1>
         <h1>{count}</h1>
         <button onClick={onClick}>Click me</button>
       </>
@@ -250,66 +291,17 @@ function demo() {
 const Demo = create(demo);
 ```
 
-利用已有的 `render` 函数来实现 `useEffect`，这样更简洁（当然也可以另加函数）。
-
-此时，`render()` 可以直接调用，也可以传入参数，`render(onUpdated, isLayoutUpdate)`，`isLayoutUpdate` 决定 `onUpdated` 是在 `useEffect` 还是 `useLayoutEffect` 中调用。注意：理论上 `render` 可以调用多次，但 React 只触发一次更新，所以如果每次都传入 `onUpdated`，则只有最后一个生效。
-
 于是，**我们成功解除了对 `useEffect`、`useLayoutEffect` 的依赖**。
 
 在这里试试：[codesandbox.io/s/react-split-components-3-zw6tk](https://codesandbox.io/s/react-split-components-3-zw6tk?file=/src/App.js)
 
-**4. 解决 "useMount"**
+利用 `useMounted` 与 `useUpdated` 实现订阅的例子：[codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
 
-React 组件有个非常基础的需求，在 didMount 中发送接口请求。Hooks 将 didMount 和 didUpdate 统一为 `useEffect` 后，此需求就多了一个理解步骤，于是无数项目里自行实现了 "useMount"。
-
-上文方案中，外部变量得在组件首次渲染后才赋值，这带来了一个问题：`render` 在首次 `useEffect` 之后才可用（所以特意将参数命名为 `onUpdated`），那 "useMount" 怎么实现呢？我们利用一下 `useRender` 的参数。
-
-```jsx
-const useRender = (onMounted, isLayoutMount) => {
-  // 省略其它代码...
-  const layoutMountedRef = useRef(isLayoutMount && onMounted);
-  const mountedRef = useRef(!isLayoutMount && onMounted);
-
-  useLayoutEffect(() => layoutMountedRef.current?.(), []);
-  useEffect(() => mountedRef.current?.(), []);
-
-  // 省略其它代码...
-};
-
-function demo() {
-  let render;
-  let data;
-
-  const onMounted = () => {
-    request().then((res) => {
-      data = res.data;
-      render();
-    });
-  };
-
-  return () => {
-    render = useRender(onMounted);
-
-    return (
-      <>
-        <h1>{JSON.stringify(data)}</h1>
-      </>
-    );
-  };
-}
-
-const Demo = create(demo);
-```
-
-这样就行了，在这里试试：[codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
-
-**5. 其它 Hooks**
+**4. 其它 Hooks**
 
 目前为止，我们已经解决了 `useState`、`useEffect`、`useCallback`、`useMemo`、`useRef`、`useLayoutEffect`，这些是日常开发中最常用的。官方 Hooks 里还剩下 4 个：`useContext`、`useReducer`、`useImperativeHandle`、`useDebugValue`，就不一一处理了。
 
 简单来说：**如果某个组件内才能拿到的变量，需要在组件外使用，就以重新赋值的方式传出去**。
-
-在此设计模式下，任何已有需求都是可以被实现的，所谓 "功能完备"。
 
 ## 4. 隆重介绍 React Split Components (RiC)
 
@@ -333,19 +325,16 @@ React Split Components 的特点：
 
 **3. 类似高阶组件，是一种 "设计模式"，非 API，无需库支持**
 
-它不是 React 官方 API，无需构建工具支持（比如 React Server Components 就需要）。
-
-它无需第三方库支持（其实 `useRender` 可以封装为 npm 包，但考虑到每个人习惯不一、需求不一，所以尽可以自己来实现辅助函数，上文代码可作为参考）。
+它不是 React 官方 API，无需构建工具支持（比如 React Server Components 就需要），无需第三方库支持（其实 `create` 可以封装为 npm 包，但考虑到每个人习惯不一、需求不一，所以尽可以自行实现辅助函数，上文代码可作为参考）。
 
 React Split Components 最终代码示例：[codesandbox.io/s/react-split-components-final-9ftjx](https://codesandbox.io/s/react-split-components-final-9ftjx?file=/src/App.js)
 
 ## 5. Hello, RiC
 
-React Split Components (RiC) 示例：
+再来看一遍 React Split Components (RiC) 示例：
 
 ```jsx
-function demo() {
-  let render;
+function demo({ render }) {
   let count = 0;
 
   const onClick = () => {
@@ -353,19 +342,15 @@ function demo() {
     render();
   };
 
-  return () => {
-    render = useRender();
-
-    return (
-      <>
-        <h1>{count}</h1>
-        <button onClick={onClick}>Click me</button>
-      </>
-    );
-  };
+  return () => (
+    <>
+      <h1>{count}</h1>
+      <button onClick={onClick}>Click me</button>
+    </>
+  );
 }
 
 const Demo = create(demo);
 ```
 
-多么 Svelte，多么直觉，多么性能自动最优化 bye bye Hooks。
+GitHub: [github.com/nanxiaobei/react-split-components](https://github.com/nanxiaobei/react-split-components)

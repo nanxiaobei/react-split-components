@@ -23,8 +23,7 @@ Write React like Svelte, just natural and fluent code.
 ## Simple Example
 
 ```jsx
-function demo() {
-  let render;
+function demo({ render }) {
   let count = 0;
 
   const onClick = () => {
@@ -32,16 +31,12 @@ function demo() {
     render();
   };
 
-  return () => {
-    render = useRender();
-
-    return (
-      <>
-        <h1>{count}</h1>
-        <button onClick={onClick}>Click me</button>
-      </>
-    );
-  };
+  return () => (
+    <>
+      <h1>{count}</h1>
+      <button onClick={onClick}>Click me</button>
+    </>
+  );
 }
 
 const Demo = create(demo);
@@ -50,8 +45,7 @@ const Demo = create(demo);
 ## Full Example
 
 ```jsx
-function demo() {
-  let render;
+function demo({ render, onMounted, onUpdated }) {
   let props;
 
   // solve useState
@@ -74,13 +68,9 @@ function demo() {
     count = count + 1;
     power = getPower(count);
 
-    render(() => {
-      // solve useEffect | useLayoutEffect
-      console.log('countRef', countRef.current);
-    });
+    render();
   };
 
-  // solve "useMount"
   const getData = () => {
     request().then((res) => {
       data = res.data;
@@ -95,8 +85,16 @@ function demo() {
     getData();
   };
 
+  // solve useEffect | useLayoutEffect
+  onMounted(() => {
+    getData();
+  });
+
+  onUpdated((prevProps) => {
+    console.log(prevProps, props);
+  });
+
   return (next) => {
-    render = useRender(getData);
     props = next;
     const { theme } = next;
 
@@ -125,37 +123,55 @@ const Demo = create(demo);
 `create` implementation example:
 
 ```js
-const create = (fn) => (props) => {
-  const [ins] = useState(() => fn());
-  return ins(props);
-};
-```
-
-`useRender` implementation example:
-
-```js
-const useRender = (onMounted, isLayoutMount) => {
+const create = (fn) => (props, ref) => {
   const [, setState] = useState(false);
 
-  const layoutMountedRef = useRef(isLayoutMount && onMounted);
-  const mountedRef = useRef(!isLayoutMount && onMounted);
-  useLayoutEffect(() => layoutMountedRef.current?.(), []);
-  useEffect(() => mountedRef.current?.(), []);
+  const hasMount = useRef(false);
+  const prevProps = useRef(props);
+  const layoutUpdated = useRef();
+  const updated = useRef();
+  const layoutMounted = useRef();
+  const mounted = useRef();
 
-  const [layoutUpdated, setLayoutUpdated] = useState();
-  const [updated, setUpdated] = useState();
-  useLayoutEffect(() => layoutUpdated?.(), [layoutUpdated]);
-  useEffect(() => updated?.(), [updated]);
+  useLayoutEffect(() => {
+    if (!hasMount.current || !layoutUpdated.current) return;
+    layoutUpdated.current(prevProps.current);
+  });
 
-  return useCallback((onUpdated, isLayoutUpdate) => {
-    setState((s) => !s);
-    if (typeof onUpdated === 'function') {
-      (isLayoutUpdate ? setLayoutUpdated : setUpdated)(() => onUpdated);
-    }
+  useEffect(() => {
+    if (!hasMount.current || !updated.current) return;
+    updated.current(prevProps.current);
+    prevProps.current = props;
+  });
+
+  useLayoutEffect(() => {
+    if (layoutMounted.current) return layoutMounted.current();
   }, []);
+
+  useEffect(() => {
+    hasMount.current = true;
+    if (mounted.current) return mounted.current();
+  }, []);
+
+  const [ins] = useState(() => {
+    const render = () => setState((s) => !s);
+    const onMounted = (callback, isLayout) => {
+      if (typeof callback !== 'function') return;
+      (isLayout ? layoutMounted : mounted).current = callback;
+    };
+    const onUpdated = (callback, isLayout) => {
+      if (typeof callback !== 'function') return;
+      (isLayout ? layoutUpdated : updated).current = callback;
+    };
+    return fn({ render, onMounted, onUpdated });
+  });
+
+  return ins(props, ref);
 };
 
-export default useRender;
+// const Demo = create(demo);
+// const Demo = memo(create(demo)); // if memo
+// const Demo = forwardRef(create(demo)); // if forwardRef
 ```
 
 ## License
