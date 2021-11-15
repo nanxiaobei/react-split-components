@@ -23,20 +23,24 @@
 ## 简单示例
 
 ```jsx
-function demo({ render }) {
-  let count = 0;
+function demo({ atom }) {
+  const state = atom({
+    count: 0,
+  });
 
   const onClick = () => {
-    count += 1;
-    render();
+    state.count += 1;
   };
 
-  return () => (
-    <>
-      <h1>{count}</h1>
-      <button onClick={onClick}>Click me</button>
-    </>
-  );
+  return () => {
+    const { count } = state;
+    return (
+      <>
+        <h1>{count}</h1>
+        <button onClick={onClick}>Click me</button>
+      </>
+    );
+  };
 }
 
 const Demo = create(demo);
@@ -45,58 +49,61 @@ const Demo = create(demo);
 ## 完整示例
 
 ```jsx
-function demo({ render, onMounted, onUpdated }) {
-  let props;
+function demo({ props, atom, onMount, onEffect }) {
+  const state = atom({
+    // for useState
+    loading: true,
+    data: null,
+    count: 0,
 
-  // 解决 useState
-  let loading = true;
-  let data;
-  let count = 0;
+    // for useMemo
+    power: () => state.count * state.count,
+    text: () => `${props.theme} ~ ${state.count}`,
+  });
 
-  // 解决 useMemo
-  const getPower = (x) => x * x;
-  let power = getPower(count);
-
-  // 解决 useRef
+  // for useRef
   const countRef = { current: null };
 
-  // 解决 useCallback
+  // for useCallback
   const onClick = () => {
     const { setTheme } = props;
     setTheme();
-
-    count = count + 1;
-    power = getPower(count);
-
-    render();
+    state.count += 1;
   };
 
   const getData = () => {
     request().then((res) => {
-      data = res.data;
-      loading = false;
-      render();
+      state.data = res.data;
+      state.loading = false;
     });
   };
 
+  // for useEffect
+  onMount(() => {
+    getData();
+    console.log('mount!');
+
+    return () => {
+      console.log('unmount!');
+    };
+  });
+
+  onEffect(state.power, (val, prevVal) => {
+    console.log('enter state.power', val, prevVal);
+
+    return () => {
+      console.log('clear state.power', val, prevVal);
+    };
+  });
+
   const onReload = () => {
-    loading = true;
-    render();
+    state.loading = true;
     getData();
   };
 
-  // 解决 useEffect | useLayoutEffect
-  onMounted(() => {
-    getData();
-  });
-
-  onUpdated((prevProps) => {
-    console.log(prevProps, props);
-  });
-
-  return (next) => {
-    props = next;
-    const { theme } = next;
+  return () => {
+    const { theme } = props;
+    const { loading, data, count, power, text } = state;
 
     return (
       <>
@@ -105,6 +112,7 @@ function demo({ render, onMounted, onUpdated }) {
         <h1>{theme}</h1>
         <h1 ref={countRef}>{count}</h1>
         <h1>{power}</h1>
+        <h1>{text}</h1>
         <button onClick={onClick}>Click me</button>
       </>
     );
@@ -125,45 +133,139 @@ const Demo = create(demo);
 ```js
 const create = (fn) => (props, ref) => {
   const [, setState] = useState(false);
+  const mountCallback = useRef();
 
-  const hasMount = useRef(false);
-  const prevProps = useRef(props);
-  const layoutUpdated = useRef();
-  const updated = useRef();
-  const layoutMounted = useRef();
-  const mounted = useRef();
+  const propsProxy = useRef({});
+  const stateTarget = useRef({});
+  const deriveState = useRef({});
 
-  useLayoutEffect(() => {
-    if (!hasMount.current || !layoutUpdated.current) return;
-    layoutUpdated.current(prevProps.current);
+  const deriveMap = useRef({});
+  const deriveRefresh = useRef({});
+
+  const effectSource = useRef({});
+  const effectRunning = useRef([]);
+
+  useMemo(() => {
+    Object.assign(propsProxy.current, props);
+  }, [props]);
+
+  Object.keys(deriveRefresh.current).forEach((key) => {
+    const val = deriveState.current[key]();
+    stateTarget.current[key] = val;
+
+    const uniqueId = `state.${key}`;
+    const effectData = effectSource.current[uniqueId];
+    if (effectData) {
+      effectData.params = [val, effectData.params[0]];
+      effectRunning.current.push(uniqueId);
+    }
+  });
+
+  deriveRefresh.current = {};
+
+  useEffect(() => {
+    effectRunning.current.forEach((uniqueId) => {
+      const { clear } = effectSource.current[uniqueId];
+      if (typeof clear === 'function') clear();
+    });
   });
 
   useEffect(() => {
-    if (!hasMount.current || !updated.current) return;
-    updated.current(prevProps.current);
-    prevProps.current = props;
+    effectRunning.current.forEach((uniqueId) => {
+      const { fn, params } = effectSource.current[uniqueId];
+      effectSource.current[uniqueId].clear = fn(...params);
+    });
+    effectRunning.current = [];
   });
 
-  useLayoutEffect(() => {
-    if (layoutMounted.current) return layoutMounted.current();
+  useEffect(() => {
+    return () => {
+      Object.values(effectSource.current).forEach(({ clear }) => {
+        if (typeof clear === 'function') clear();
+      });
+      effectSource.current = {};
+    };
   }, []);
 
-  useEffect(() => {
-    hasMount.current = true;
-    if (mounted.current) return mounted.current();
-  }, []);
+  useEffect(() => mountCallback.current?.(), []);
 
   const [ins] = useState(() => {
-    const render = () => setState((s) => !s);
-    const onMounted = (callback, isLayout) => {
-      if (typeof callback !== 'function') return;
-      (isLayout ? layoutMounted : mounted).current = callback;
+    let curUniqueId = null;
+    let curDerivePair = null;
+
+    const createHandler = (type) => ({
+      get(target, key) {
+        curUniqueId = `${type}.${key}`;
+        if (curDerivePair) {
+          if (!deriveMap.current[curUniqueId]) {
+            deriveMap.current[curUniqueId] = {};
+          }
+          const [deriveKey, deriveGetter] = curDerivePair;
+          deriveMap.current[curUniqueId][deriveKey] = deriveGetter;
+        }
+        return target[key];
+      },
+      set(target, key, val) {
+        if (val !== target[key]) {
+          const uniqueId = `${type}.${key}`;
+          const deriveData = deriveMap.current[uniqueId];
+          if (deriveData) {
+            Object.assign(deriveRefresh.current, deriveData);
+          }
+          const effectData = effectSource.current[uniqueId];
+          if (effectData) {
+            effectData.params = [val, target[key]];
+            effectRunning.current.push(uniqueId);
+          }
+        }
+        target[key] = val;
+        if (type === 'state') setState((s) => !s);
+        return true;
+      },
+    });
+
+    const propsHandler = createHandler('props');
+    const stateHandler = createHandler('state');
+
+    propsProxy.current = new Proxy(propsProxy.current, propsHandler);
+
+    const atom = (initState) => {
+      Object.entries(initState).forEach(([key, val]) => {
+        if (typeof val === 'function') deriveState.current[key] = val;
+        stateTarget.current[key] = val;
+      });
+      return new Proxy(stateTarget.current, stateHandler);
     };
-    const onUpdated = (callback, isLayout) => {
-      if (typeof callback !== 'function') return;
-      (isLayout ? layoutUpdated : updated).current = callback;
+
+    const onEffect = (val, fn) => {
+      if (effectSource.current[curUniqueId]) {
+        throw new Error(`${curUniqueId} effect is already exist`);
+      }
+      effectSource.current[curUniqueId] = { params: [val], fn };
+      effectRunning.current.push(curUniqueId);
+      curUniqueId = null;
     };
-    return fn({ render, onMounted, onUpdated });
+
+    const onMount = (fn) => {
+      mountCallback.current = fn;
+    };
+
+    const res = fn({ props: propsProxy.current, atom, onMount, onEffect });
+
+    Object.entries(deriveState.current).forEach(([key, getter]) => {
+      curDerivePair = [key, getter];
+      const val = getter();
+      curDerivePair = null;
+
+      stateTarget.current[key] = val;
+      const effectData = effectSource.current[`state.${key}`];
+      if (effectData) effectData.params = [val];
+    });
+
+    const get = (target, key) => target[key];
+    propsHandler.get = get;
+    stateHandler.get = get;
+    return res;
   });
 
   return ins(props, ref);

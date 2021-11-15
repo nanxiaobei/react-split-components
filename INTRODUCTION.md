@@ -121,28 +121,46 @@ const create = (fn) => (props) => {
   const [, setState] = useState(false);
 
   const [ins] = useState(() => {
-    const render = () => setState((s) => !s);
-    return fn({ render });
+    const atom = (initState) => {
+      return new Proxy(initState, {
+        get: (target, key) => target[key],
+        set: (target, key, val) => {
+          target[key] = val;
+          setState((s) => !s);
+          return true;
+        },
+      });
+    };
+    return fn({ atom });
   });
 
   return ins(props);
 };
 
-function demo({ render }) {
-  let count = 0;
+function demo({ atom }) {
+  const state = atom({
+    count: 0,
+  });
 
   const onClick = () => {
-    count += 1;
-    render();
+    state.count += 1;
   };
 
-  // Omit other code...
+  return () => {
+    const { count } = state;
+    return (
+      <>
+        <h1>{count}</h1>
+        <button onClick={onClick}>Click me</button>
+      </>
+    );
+  };
 }
 
 const Demo = create(demo);
 ```
 
-Use `create` function to pass the component update function `render` through the parameter. If you need to update, manually call `render` (Of course, the function name is arbitrary, such as `update`, here is the design pattern, there are no constraints on the specific implementation).
+Use `create` function to pass in the responsive data generation function `atom` from the parameters, which can be used to generate the responsive state.
 
 As a result, **we successfully lifted the dependency on `useState`**.
 
@@ -151,29 +169,25 @@ Above is already a usable component, try it here: [codesandbox.io/s/react-split-
 **2. Solve `useMemo`, `useRef`, solve props:**
 
 ```jsx
-function demo({ render }) {
-  let props;
+function demo({ props, atom }) {
+  const state = atom({
+    count: 0,
+    power: () => state.count * state.count,
+  });
 
-  const getPower = (x) => x * x;
-
-  let count = 0;
-  let power = getPower(count); // for useMemo
-  const countRef = { current: null }; // for useRef
+  const countRef = { current: null };
 
   const onClick = () => {
-    // The use of "props" must be written inside function,
-    // because the initial value of "props" outside is undefined
     const { setTheme } = props;
     setTheme();
 
-    count += 1;
-    power = getPower(count);
-    render();
+    state.count += 1;
+    console.log('countRef', countRef.current);
   };
 
-  return (next) => {
-    props = next;
-    const { theme } = next;
+  return () => {
+    const { theme } = props;
+    const { count, power } = state;
 
     return (
       <>
@@ -189,101 +203,53 @@ function demo({ render }) {
 const Demo = create(demo);
 ```
 
-Use re-assignment to pass props out. Then we think about it carefully: through closure, `useMemo` and `useRef` are actually no longer needed.
+Pass `props` implemented by Proxy from the function parameters.
 
-`useMemo` and `useRef` are because variables re-created every time, so need to wrap. With closure, variables won't re-create anymore, and component will naturally hold updated values of variables. All of these are the operating mechanism of JS, naturally.
+Because variables are re-created every time, so wrap them with `useMemo` and `useRef` before. With closure, it is no longer needed, variables will never be re-created, and the component naturally hold the updated values of variables.
 
-And `useMemo`'s arithmetic mechanism like "watch" can be changed to manually trigger, "imperative programming" (Of course, you can use `Proxy` to implement a watch-like function yourself, but this is not our focus).
+And the similar monitoring mechanism of `useMemo`, `Proxy`can be used to support computed data type in`atom`.
 
 Therefore, **we successfully lifted the dependence on `useMemo` and `useRef`**.
 
 Try the above code here: [codesandbox.io/s/react-split-components-2-wl46b](https://codesandbox.io/s/react-split-components-2-wl46b?file=/src/App.js)
 
-**3. Solve `useEffect` and `useLayoutEffect`:**
+**3. Solve `useEffect`:**
 
 ```jsx
-const create = (fn) => (props, ref) => {
-  const [, setState] = useState(false);
-
-  const hasMount = useRef(false);
-  const prevProps = useRef(props);
-  const layoutUpdated = useRef();
-  const updated = useRef();
-  const layoutMounted = useRef();
-  const mounted = useRef();
-
-  useLayoutEffect(() => {
-    if (!hasMount.current || !layoutUpdated.current) return;
-    layoutUpdated.current(prevProps.current);
+function demo({ atom, onMount, onEffect }) {
+  const state = atom({
+    loading: true,
+    data: null,
   });
-
-  useEffect(() => {
-    if (!hasMount.current || !updated.current) return;
-    updated.current(prevProps.current);
-    prevProps.current = props;
-  });
-
-  useLayoutEffect(() => {
-    if (layoutMounted.current) return layoutMounted.current();
-  }, []);
-
-  useEffect(() => {
-    hasMount.current = true;
-    if (mounted.current) return mounted.current();
-  }, []);
-
-  const [ins] = useState(() => {
-    const render = () => setState((s) => !s);
-
-    const onMounted = (callback, isLayout) => {
-      if (typeof callback !== 'function') return;
-      (isLayout ? layoutMounted : mounted).current = callback;
-    };
-
-    const onUpdated = (callback, isLayout) => {
-      if (typeof callback !== 'function') return;
-      (isLayout ? layoutUpdated : updated).current = callback;
-    };
-
-    return fn({ render, onMounted, onUpdated });
-  });
-
-  return ins(props, ref);
-};
-
-function demo({ render, onMounted, onUpdated }) {
-  let props;
-  let data;
-  let count = 0;
-
-  const onClick = () => {
-    count += 1;
-    render();
-  };
 
   const getData = () => {
     request().then((res) => {
-      data = res.data;
-      render();
+      state.data = res.data;
+      state.loading = false;
     });
   };
 
-  onMounted(() => {
+  const onReload = () => {
+    state.loading = true;
+    getData();
+  };
+
+  onMount(() => {
+    console.log('mounted!');
     getData();
   });
 
-  onUpdated((prevProps) => {
-    console.log(prevProps, props);
+  onEffect(state.data, (val, prevVal) => {
+    console.log('state.data', val, prevVal);
   });
 
-  return (next) => {
-    props = next;
+  return () => {
+    const { loading, data } = state;
 
     return (
       <>
         <h1>{loading ? 'loading...' : JSON.stringify(data)}</h1>
-        <h1>{count}</h1>
-        <button onClick={onClick}>Click me</button>
+        <button onClick={onReload}>Reload data</button>
       </>
     );
   };
@@ -292,17 +258,23 @@ function demo({ render, onMounted, onUpdated }) {
 const Demo = create(demo);
 ```
 
-As a result, **we successfully lifted the dependency on `useEffect` and `useLayoutEffect`**.
+Pass `onMount` and `onEffect` from the function parameters.
+
+`onMount` is called during mount with only one callback function parameter. `onEffect` has two parameters. The first is the data to be monitored. When the data changes, the callback function of the second parameter will be called.
+
+Both `onMount` and `onEffect` support similar to `useEffect` to clean-up side effects (such as unsubscription) in the returned function.
+
+`onEffect` only supports monitoring one single `props.xxx` or `state.xxx`, because `props` and `state` are responsive data, and the data in all callback functions can always be up-to-date, so there is no need to put in `deps` to receive update. Monitoring one single data change can clearly indicate the source of the data change that "logical processing" relies on, thereby making the code clearer.
+
+As a result, **we successfully lifted the dependency on `useEffect`**.
 
 Try it here: [codesandbox.io/s/react-split-components-3-zw6tk](https://codesandbox.io/s/react-split-components-3-zw6tk?file=/src/App.js)
 
-Example of using `useMounted` and `useUpdated` to implement subscription: [codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
+Example of using `onEffect` to implement subscription: [codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
 
 **4. Other Hooks**
 
-So far, we have solved `useState`, `useEffect`, `useCallback`, `useMemo`, `useRef`, `useLayoutEffect`, these are the most commonly used in development. There are 4 remaining official Hooks: `useContext`, `useReducer`, `useImperativeHandle`, `useDebugValue`, I won't deal with them one by one.
-
-Make it simply: **If a variable can only be obtained in the component, needs to be used outside, pass it out by re-assignment**.
+So far, we have solved `useState`, `useEffect`, `useCallback`, `useMemo`, `useRef`, these are the most commonly used in development. There are 5 remaining official Hooks: `useContext`, `useReducer`, `useImperativeHandle`, `useLayoutEffect`, `useDebugValue`, I won't deal with them one by one.
 
 ## 4. Introducing React Split Components (RiC)
 
@@ -335,20 +307,24 @@ React Split Components final code demo: [codesandbox.io/s/react-split-components
 Look at React Split Components (RiC) example again:
 
 ```jsx
-function demo({ render }) {
-  let count = 0;
+function demo({ atom }) {
+  const state = atom({
+    count: 0,
+  });
 
   const onClick = () => {
-    count += 1;
-    render();
+    state.count += 1;
   };
 
-  return () => (
-    <>
-      <h1>{count}</h1>
-      <button onClick={onClick}>Click me</button>
-    </>
-  );
+  return () => {
+    const { count } = state;
+    return (
+      <>
+        <h1>{count}</h1>
+        <button onClick={onClick}>Click me</button>
+      </>
+    );
+  };
 }
 
 const Demo = create(demo);

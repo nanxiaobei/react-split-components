@@ -121,28 +121,46 @@ const create = (fn) => (props) => {
   const [, setState] = useState(false);
 
   const [ins] = useState(() => {
-    const render = () => setState((s) => !s);
-    return fn({ render });
+    const atom = (initState) => {
+      return new Proxy(initState, {
+        get: (target, key) => target[key],
+        set: (target, key, val) => {
+          target[key] = val;
+          setState((s) => !s);
+          return true;
+        },
+      });
+    };
+    return fn({ atom });
   });
 
   return ins(props);
 };
 
-function demo({ render }) {
-  let count = 0;
+function demo({ atom }) {
+  const state = atom({
+    count: 0,
+  });
 
   const onClick = () => {
-    count += 1;
-    render();
+    state.count += 1;
   };
 
-  // 省略其它代码...
+  return () => {
+    const { count } = state;
+    return (
+      <>
+        <h1>{count}</h1>
+        <button onClick={onClick}>Click me</button>
+      </>
+    );
+  };
 }
 
 const Demo = create(demo);
 ```
 
-利用 `create` 函数，将组件更新函数 `render` 从参数传入。若需更新，手动调用 `render` 即可（当然，函数命名随意比如 `update`，这里介绍的是设计模式，具体实现没什么约束）。
+利用 `create` 函数，将响应式数据生成函数 `atom` 从参数传入，即可用于生成响应式 state。
 
 于是，**我们成功解除了对 `useState` 的依赖**。
 
@@ -151,28 +169,25 @@ const Demo = create(demo);
 **2. 解决 `useMemo`、`useRef`，解决 props：**
 
 ```jsx
-function demo({ render }) {
-  let props;
+function demo({ props, atom }) {
+  const state = atom({
+    count: 0,
+    power: () => state.count * state.count,
+  });
 
-  const getPower = (x) => x * x;
-
-  let count = 0;
-  let power = getPower(count); // for useMemo
-  const countRef = { current: null }; // for useRef
+  const countRef = { current: null };
 
   const onClick = () => {
-    // props 使用须写在函数内，因为外部初始 props 值为 undefined
     const { setTheme } = props;
     setTheme();
 
-    count += 1;
-    power = getPower(count);
-    render();
+    state.count += 1;
+    console.log('countRef', countRef.current);
   };
 
-  return (next) => {
-    props = next;
-    const { theme } = next;
+  return () => {
+    const { theme } = props;
+    const { count, power } = state;
 
     return (
       <>
@@ -188,101 +203,53 @@ function demo({ render }) {
 const Demo = create(demo);
 ```
 
-以重新赋值的方式将 props 传递出去。然后我们仔细想一下：通过闭包，`useMemo` 与 `useRef` 其实已经不需要了。
+将以 Proxy 实现的 `props` 从函数参数传入。
 
-`useMemo` 和 `useRef` 是因为变量每次都新建，得包一下。而使用闭包，变量再不会新建，且组件天然保有变量更新后的值，这一切都是 JS 的自然运行机制。
+因为变量每次都新建，得用 `useMemo` 和 `useRef` 包一下。而使用闭包时则不再需要，变量不会新建，且组件天然保有变量更新后的值。
 
-而 `useMemo` 类似 watch 的运算机制，可改为手动触发的「命令式编程」（当然，也可以用 `Proxy` 等自行实现类似 watch 功能，不过这不是重点）。
+而 `useMemo` 的类似监听的机制，可利用 Proxy 在 `atom` 中实现支持 computed 型的数据。
 
 于是，**我们成功解除了对 `useMemo`、`useRef` 的依赖**。
 
 上文代码，在这里试试：[codesandbox.io/s/react-split-components-2-wl46b](https://codesandbox.io/s/react-split-components-2-wl46b?file=/src/App.js)
 
-**3. 解决 `useEffect` 与 `useLayoutEffect`：**
+**3. 解决 `useEffect`：**
 
 ```jsx
-const create = (fn) => (props, ref) => {
-  const [, setState] = useState(false);
-
-  const hasMount = useRef(false);
-  const prevProps = useRef(props);
-  const layoutUpdated = useRef();
-  const updated = useRef();
-  const layoutMounted = useRef();
-  const mounted = useRef();
-
-  useLayoutEffect(() => {
-    if (!hasMount.current || !layoutUpdated.current) return;
-    layoutUpdated.current(prevProps.current);
+function demo({ atom, onMount, onEffect }) {
+  const state = atom({
+    loading: true,
+    data: null,
   });
-
-  useEffect(() => {
-    if (!hasMount.current || !updated.current) return;
-    updated.current(prevProps.current);
-    prevProps.current = props;
-  });
-
-  useLayoutEffect(() => {
-    if (layoutMounted.current) return layoutMounted.current();
-  }, []);
-
-  useEffect(() => {
-    hasMount.current = true;
-    if (mounted.current) return mounted.current();
-  }, []);
-
-  const [ins] = useState(() => {
-    const render = () => setState((s) => !s);
-
-    const onMounted = (callback, isLayout) => {
-      if (typeof callback !== 'function') return;
-      (isLayout ? layoutMounted : mounted).current = callback;
-    };
-
-    const onUpdated = (callback, isLayout) => {
-      if (typeof callback !== 'function') return;
-      (isLayout ? layoutUpdated : updated).current = callback;
-    };
-
-    return fn({ render, onMounted, onUpdated });
-  });
-
-  return ins(props, ref);
-};
-
-function demo({ render, onMounted, onUpdated }) {
-  let props;
-  let data;
-  let count = 0;
-
-  const onClick = () => {
-    count += 1;
-    render();
-  };
 
   const getData = () => {
     request().then((res) => {
-      data = res.data;
-      render();
+      state.data = res.data;
+      state.loading = false;
     });
   };
 
-  onMounted(() => {
+  const onReload = () => {
+    state.loading = true;
+    getData();
+  };
+
+  onMount(() => {
+    console.log('mounted!');
     getData();
   });
 
-  onUpdated((prevProps) => {
-    console.log(prevProps, props);
+  onEffect(state.data, (val, prevVal) => {
+    console.log('state.data', val, prevVal);
   });
 
-  return (next) => {
-    props = next;
+  return () => {
+    const { loading, data } = state;
 
     return (
       <>
         <h1>{loading ? 'loading...' : JSON.stringify(data)}</h1>
-        <h1>{count}</h1>
-        <button onClick={onClick}>Click me</button>
+        <button onClick={onReload}>Reload data</button>
       </>
     );
   };
@@ -291,17 +258,23 @@ function demo({ render, onMounted, onUpdated }) {
 const Demo = create(demo);
 ```
 
-于是，**我们成功解除了对 `useEffect`、`useLayoutEffect` 的依赖**。
+从函数参数传入 `onMount` 与 `onEffect`。
+
+`onMount` 在 mount 时调用，只有一个回调函数参数。`onEffect` 有两个参数，第一个参数为需要监听的数据，当数据变化时，第二个参数的回调函数将被调用。
+
+`onMount` 与 `onEffect` 均支持类似 `useEffect` 的在 return 的函数中清理副作用（比如取消订阅）。
+
+`onEffect` 只支持监听单个 `props.xxx` 或 `state.xxx`，因为 `props` 和 `state` 是响应式数据，所有回调函数中的数据总能取到最新，不需要放入 `deps` 以解决更新。而监听单个数据变化，可清楚表明 "逻辑处理" 所依赖的数据变化源，从而让代码更清晰。
+
+于是，**我们成功解除了对 `useEffect` 的依赖**。
 
 在这里试试：[codesandbox.io/s/react-split-components-3-zw6tk](https://codesandbox.io/s/react-split-components-3-zw6tk?file=/src/App.js)
 
-利用 `useMounted` 与 `useUpdated` 实现订阅的例子：[codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
+利用 `onEffect` 实现订阅的例子：[codesandbox.io/s/react-split-components-4-y8hn8](https://codesandbox.io/s/react-split-components-4-y8hn8?file=/src/App.js)
 
 **4. 其它 Hooks**
 
-目前为止，我们已经解决了 `useState`、`useEffect`、`useCallback`、`useMemo`、`useRef`、`useLayoutEffect`，这些是日常开发中最常用的。官方 Hooks 里还剩下 4 个：`useContext`、`useReducer`、`useImperativeHandle`、`useDebugValue`，就不一一处理了。
-
-简单来说：**如果某个组件内才能拿到的变量，需要在组件外使用，就以重新赋值的方式传出去**。
+目前为止，我们已经解决了 `useState`、`useEffect`、`useCallback`、`useMemo`、`useRef`，这些是日常开发中最常用的。官方 Hooks 里还剩下 5 个：`useContext`、`useReducer`、`useImperativeHandle`、`useLayoutEffect`、`useDebugValue`，就不一一处理了。
 
 ## 4. 隆重介绍 React Split Components (RiC)
 
@@ -334,20 +307,24 @@ React Split Components 最终代码示例：[codesandbox.io/s/react-split-compon
 再来看一遍 React Split Components (RiC) 示例：
 
 ```jsx
-function demo({ render }) {
-  let count = 0;
+function demo({ atom }) {
+  const state = atom({
+    count: 0,
+  });
 
   const onClick = () => {
-    count += 1;
-    render();
+    state.count += 1;
   };
 
-  return () => (
-    <>
-      <h1>{count}</h1>
-      <button onClick={onClick}>Click me</button>
-    </>
-  );
+  return () => {
+    const { count } = state;
+    return (
+      <>
+        <h1>{count}</h1>
+        <button onClick={onClick}>Click me</button>
+      </>
+    );
+  };
 }
 
 const Demo = create(demo);
