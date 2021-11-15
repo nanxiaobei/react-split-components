@@ -205,9 +205,9 @@ const Demo = create(demo);
 
 将以 Proxy 实现的 `props` 从函数参数传入。
 
-因为变量每次都新建，得用 `useMemo` 和 `useRef` 包一下。而使用闭包时则不再需要，变量不会新建，且组件天然保有变量更新后的值。
+因为变量每次都新建，得用 `useMemo` 和 `useRef` 包一下，而使用闭包时则不再需要，变量不会新建，且组件天然保有变量更新后的值。
 
-而 `useMemo` 的类似监听的机制，可利用 Proxy 在 `atom` 中实现支持 computed 型的数据。
+而 `useMemo` 类似监听的机制，可利用 Proxy 在 `atom` 中实现支持 computed 型的数据。
 
 于是，**我们成功解除了对 `useMemo`、`useRef` 的依赖**。
 

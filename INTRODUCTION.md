@@ -205,7 +205,7 @@ const Demo = create(demo);
 
 Pass `props` implemented by Proxy from the function parameters.
 
-Because variables are re-created every time, so wrap them with `useMemo` and `useRef` before. With closure, it is no longer needed, variables will never be re-created, and the component naturally hold the updated values of variables.
+Because variables are re-created every time, so wrap them with `useMemo` and `useRef` before, with closure, it is no longer needed, variables will never be re-created, and the component naturally hold the updated values of variables.
 
 And the similar monitoring mechanism of `useMemo`, `Proxy`can be used to support computed data type in`atom`.
 
