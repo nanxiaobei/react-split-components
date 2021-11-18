@@ -71,13 +71,13 @@ const create = (fn) => (props) => {
       return new Proxy(stateTarget, stateHandler);
     };
 
-    let mountCallback = noop;
+    let onMountCb;
     const onMount = (fn) => {
-      if (typeof fn === 'function') mountCallback = fn;
+      if (typeof fn === 'function') onMountCb = fn;
     };
 
     const onEffect = (val, fn) => {
-      if (typeof val !== 'string' || typeof fn !== 'function') return;
+      if (typeof fn !== 'function') return;
       if (effectMap[curUniqueId]) return;
       effectMap[curUniqueId] = { params: [val], fn };
       effectUpdates.push(curUniqueId);
@@ -113,13 +113,13 @@ const create = (fn) => (props) => {
         effectUpdates = [];
       },
       onEffectMount: () => {
-        const onUnmount = mountCallback();
+        const unmount = typeof onMountCb === 'function' && onMountCb();
         return () => {
           Object.values(effectMap).forEach(({ clear }) => {
             if (typeof clear === 'function') clear();
           });
           effectMap = {};
-          if (typeof onUnmount === 'function') onUnmount();
+          if (typeof unmount === 'function') unmount();
         };
       },
     };
