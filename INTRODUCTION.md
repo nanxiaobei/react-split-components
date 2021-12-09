@@ -14,7 +14,7 @@ Why does React officially promote Functional Components? Class Components isn't 
 
 Because Functional Components are more in line with React's philosophy `UI = f(state)`.
 
-So Hooks came, bringing "internal variables" and "side effects" to Function Components, making them fully functional. it's also a "logical sharing" solution.
+So Hooks came, bringing "internal variables" and "side effects" to Function Components, making them fully functional. it's also a "logic sharing" solution.
 
 **2. The problem of Function Components**
 
@@ -22,7 +22,7 @@ Because every time the function is called, all the internal variables are create
 
 `UI = f(state)` looks like a pure function, pass `state` and return `UI`.
 
-Like `rice = electricCooker(rice)`, but if the `electricCooker` rebuilds its "circuit system" every time it cooks, it's counter-intuitive.
+Like `cookedRice = electricCooker(rice)`, but if the `electricCooker` rebuilds its "circuit system" every time it cooks, it's counter-intuitive.
 
 We hope that `f` is simply "cooking", and other functions are already "carried" instead of "create" every time.
 
@@ -264,7 +264,7 @@ Pass `onMount` and `onEffect` from the function parameters.
 
 Both `onMount` and `onEffect` support similar to `useEffect` to clean-up side effects (such as unsubscription) in the returned function.
 
-`onEffect` only supports monitoring one single `props.xxx` or `state.xxx`, because `props` and `state` are responsive data, and the data in all callback functions can always be up-to-date, so there is no need to put in `deps` to receive update. Monitoring one single data change can clearly indicate the source of the data change that "logical processing" relies on, thereby making the code clearer.
+`onEffect` only supports monitoring one single `props.xxx` or `state.xxx`, because `props` and `state` are responsive data, and the data in all callback functions can always be up-to-date, so there is no need to put in `deps` to receive update. Monitoring one single data change can clearly indicate the source that "logic processing" relies on, thereby making the code clearer.
 
 As a result, **we successfully lifted the dependency on `useEffect`**.
 
