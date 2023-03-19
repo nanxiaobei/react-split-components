@@ -1,6 +1,6 @@
 # React Split Components (RiC)
 
-A new way of Function Components without Hooks.
+A new way of React Components without Hooks.
 
 English | [简体中文](./README.zh-CN.md)
 
