@@ -1,6 +1,6 @@
 # React Split Components (RiC)
 
-一种全新的 React 函数组件写法，再不需要 Hooks。
+一种全新的 React 组件写法，再不需要 Hooks。
 
 [English](./README.md) | 简体中文
 
