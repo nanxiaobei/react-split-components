@@ -1,3 +1,12 @@
+<div align="center">
+<p><a href="https://kee.so/" target="_blank"><img src="https://i.imgur.com/x5SRUoo.png" alt="kee.so" /></a></p>
+
+Create now ➫ [🔗 kee.so](https://kee.so/)
+
+</div>
+
+---
+
 # React Split Components (RiC)
 
 一种全新的 React 组件写法，再不需要 Hooks。
@@ -129,9 +138,3 @@ const Demo = create(demo);
 ## 协议
 
 [MIT License](https://github.com/nanxiaobei/react-split-components/blob/main/LICENSE) (c) [nanxiaobei](https://lee.so/)
-
-## FUTAKE
-
-试试 [**FUTAKE**](https://sotake.com/futake) 小程序，你的灵感相册。🌈
-
-![](https://s3.bmp.ovh/imgs/2022/07/21/452dd47aeb790abd.png)
